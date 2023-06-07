@@ -105,7 +105,7 @@ def first_interpolator(kind_of_measurement, selected_time, out=None):
         print(np.shape(array_of_interpolants))
         # shape(heigths, times, interpolants)
         index = 0
-        with np.nditer([array_of_interpolants, out], flags=['buffered', 'multi_index', 'refs_ok'], op_flags=[['readonly'], ['readonly'], ['writeonly', 'allocate', 'no_broadcast']]) as it: 
+        with np.nditer([array_of_interpolants, out], flags=['buffered', 'multi_index', 'refs_ok'], op_flags=[['readonly'], ['writeonly', 'allocate', 'no_broadcast']]) as it: 
             for measurement_values, interpolants_for_a_time in it: 
                 interpolant = np.interp(explosion_dates, cleaned_dates.ravel(), [measurement_values[..., index], measurement_values[..., index + 1]]) 
                 interpolants_for_a_time[...] = interpolant 
@@ -117,17 +117,28 @@ def first_interpolator(kind_of_measurement, selected_time, out=None):
         return request_to_interpolate_again()
     
     if (kind_of_measurement == 1):
-        cleaned_temperture = np.take(temperture, desired_indices, axis=0)
+        cleaned_temperture = temperture[desired_indices, ...]
         
-        for height in range(23):
+        with np.nditer([np.arange(0, 1, 1)]) as it: #en teoría aquí va un 23, por 23 alturas
+            for height in it:
+                measurements_at_same_height = [] # aquí sería un arreglo creado con np.empty
+                with np.nditer([np.arange(0, 2, 1)]) as it: # aquí el tamaño del arreglo cleaned dates
+                    for time in it:
+                        flatten_temperture = cleaned_temperture[time, height, ...].ravel()
+                        temperture_interpolants = griddata(coords_full_set, flatten_temperture, coords_to_interp, method='cubic')
+                        measurements_at_same_height.append(list(temperture_interpolants))
+                        # measurements_at_same_height[index] = list(temperture_interpolants) en caso de usar el arreglo creado con np.empty
+                sequence_of_interpolants.append(measurements_at_same_height)
+                    
+        """for height in range(1): #en teoría aquí va un 23, por 23 alturas
             measurements_at_same_height = np.empty(len(cleaned_dates), dtype='object')
             
-            for time in range(np.size(cleaned_dates)):
+            for time in range(1): # aquí el tamaño del arreglo cleaned dates
                 flatten_temperture = cleaned_temperture[time, height, ...].ravel()
                 temperture_interpolants = griddata(coords_full_set, flatten_temperture, coords_to_interp, method='cubic')
                 measurements_at_same_height[index] = list(temperture_interpolants)
                 
-            sequence_of_interpolants.append(measurements_at_same_height)
+            sequence_of_interpolants.append(measurements_at_same_height)"""
             
     print('Interpolación espacial exitosa')
     second_interpolator(sequence_of_interpolants)
